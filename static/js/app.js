@@ -15,6 +15,7 @@ class EcommerceSearch {
         };
         this.multiMatchFields = ['description', 'product_name'];
         this.enableReranking = false;
+        this.rerankField = 'description';
         this.queryUpdateTimeout = null;
         this.currentQuery = '';
         
@@ -35,9 +36,9 @@ class EcommerceSearch {
             }
         });
         
-        // Weight input changes with debouncing
-        document.querySelectorAll('.weight-input').forEach(input => {
-            input.addEventListener('input', (e) => {
+        // Weight slider changes with debouncing
+        document.querySelectorAll('.weight-slider').forEach(slider => {
+            slider.addEventListener('input', (e) => {
                 this.handleWeightChange(e.target);
             });
         });
@@ -53,12 +54,24 @@ class EcommerceSearch {
         // Reranking checkbox
         document.getElementById('enableReranking').addEventListener('change', (e) => {
             this.enableReranking = e.target.checked;
+            this.toggleRerankFieldSelection();
+            this.scheduleQueryUpdate();
+        });
+        
+        // Reranking field dropdown
+        document.getElementById('rerankField').addEventListener('change', (e) => {
+            this.rerankField = e.target.value;
             this.scheduleQueryUpdate();
         });
         
         // Show query button
         document.getElementById('showQueryBtn').addEventListener('click', () => {
             this.showGeneratedQuery();
+        });
+        
+        // Reset weights button
+        document.getElementById('resetWeightsBtn').addEventListener('click', () => {
+            this.resetAllWeights();
         });
         
         // Copy query button
@@ -81,17 +94,29 @@ class EcommerceSearch {
         this.performSearch();
     }
     
-    handleWeightChange(input) {
-        const field = input.dataset.field;
-        const value = parseFloat(input.value) || 0;
+    handleWeightChange(slider) {
+        const field = slider.dataset.field;
+        const value = parseFloat(slider.value) || 0;
         
         // Update weights object
         this.weights[field] = value;
         
+        // Update the value display
+        const valueDisplay = slider.parentElement.querySelector('.slider-value');
+        if (valueDisplay) {
+            valueDisplay.textContent = value.toFixed(1);
+        }
+        
         // Visual feedback
-        input.classList.add('changed');
+        slider.classList.add('changed');
+        if (valueDisplay) {
+            valueDisplay.classList.add('changed');
+        }
         setTimeout(() => {
-            input.classList.remove('changed');
+            slider.classList.remove('changed');
+            if (valueDisplay) {
+                valueDisplay.classList.remove('changed');
+            }
         }, 500);
         
         // Schedule query update with 2-second delay
@@ -101,6 +126,46 @@ class EcommerceSearch {
     updateMultiMatchFields() {
         this.multiMatchFields = Array.from(document.querySelectorAll('.multi-match-checkbox:checked'))
             .map(checkbox => checkbox.value);
+    }
+    
+    toggleRerankFieldSelection() {
+        const rerankFieldSelection = document.getElementById('rerankFieldSelection');
+        if (this.enableReranking) {
+            rerankFieldSelection.style.display = 'block';
+        } else {
+            rerankFieldSelection.style.display = 'none';
+        }
+    }
+    
+    resetAllWeights() {
+        // Reset all weights to 0
+        Object.keys(this.weights).forEach(field => {
+            this.weights[field] = 0;
+        });
+        
+        // Update all sliders to 0
+        document.querySelectorAll('.weight-slider').forEach(slider => {
+            slider.value = 0;
+            const valueDisplay = slider.parentElement.querySelector('.slider-value');
+            if (valueDisplay) {
+                valueDisplay.textContent = '0.0';
+            }
+            
+            // Add visual feedback
+            slider.classList.add('changed');
+            if (valueDisplay) {
+                valueDisplay.classList.add('changed');
+            }
+            setTimeout(() => {
+                slider.classList.remove('changed');
+                if (valueDisplay) {
+                    valueDisplay.classList.remove('changed');
+                }
+            }, 500);
+        });
+        
+        // Schedule query update
+        this.scheduleQueryUpdate();
     }
     
     scheduleQueryUpdate() {
@@ -129,7 +194,8 @@ class EcommerceSearch {
                     query: query,
                     weights: this.weights,
                     multi_match_fields: this.multiMatchFields,
-                    enable_reranking: this.enableReranking
+                    enable_reranking: this.enableReranking,
+                    rerank_field: this.rerankField
                 })
             });
             
@@ -161,7 +227,8 @@ class EcommerceSearch {
                     query: query,
                     weights: this.weights,
                     multi_match_fields: this.multiMatchFields,
-                    enable_reranking: this.enableReranking
+                    enable_reranking: this.enableReranking,
+                    rerank_field: this.rerankField
                 })
             });
             
@@ -290,7 +357,8 @@ class EcommerceSearch {
                         query: query,
                         weights: this.weights,
                         multi_match_fields: this.multiMatchFields,
-                        enable_reranking: this.enableReranking
+                        enable_reranking: this.enableReranking,
+                        rerank_field: this.rerankField
                     })
                 });
                 

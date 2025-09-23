@@ -97,9 +97,10 @@ def search():
         weights = data.get('weights', DEFAULT_WEIGHTS)
         multi_match_fields = data.get('multi_match_fields', ['description', 'product_name'])
         enable_reranking = data.get('enable_reranking', False)
+        rerank_field = data.get('rerank_field', 'description')
         
         # Generate the hybrid query
-        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking)
+        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking, rerank_field)
         
         # Execute the search
         response = es.search(
@@ -157,9 +158,10 @@ def generate_query():
         weights = data.get('weights', DEFAULT_WEIGHTS)
         multi_match_fields = data.get('multi_match_fields', ['description', 'product_name'])
         enable_reranking = data.get('enable_reranking', False)
+        rerank_field = data.get('rerank_field', 'description')
         
         # Generate the hybrid query
-        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking)
+        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking, rerank_field)
         
         return jsonify({
             'success': True,
@@ -172,11 +174,11 @@ def generate_query():
             'error': str(e)
         }), 500
 
-def generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking=False):
+def generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking=False, rerank_field='description'):
     """Generate the hybrid query using bool/should structure or reranking structure"""
     
     if enable_reranking:
-        return generate_reranking_query(query_text, weights, multi_match_fields)
+        return generate_reranking_query(query_text, weights, multi_match_fields, rerank_field)
     else:
         return generate_standard_query(query_text, weights, multi_match_fields)
 
@@ -197,7 +199,7 @@ def generate_standard_query(query_text, weights, multi_match_fields):
     ]
     
     for field in semantic_fields:
-        if field in weights and weights[field] > 0:
+        if field in weights:
             should_clauses.append({
                 "match": {
                     field: {
@@ -208,7 +210,7 @@ def generate_standard_query(query_text, weights, multi_match_fields):
             })
     
     # Add multi_match clause
-    if 'multi_match' in weights and weights['multi_match'] > 0 and multi_match_fields:
+    if 'multi_match' in weights and multi_match_fields:
         should_clauses.append({
             "multi_match": {
                 "query": query_text,
@@ -218,22 +220,22 @@ def generate_standard_query(query_text, weights, multi_match_fields):
         })
     
     # Add model_number clause
-    if 'model_number' in weights and weights['model_number'] > 0:
+    if 'model_number' in weights:
         should_clauses.append({
-            "match": {
+            "term": {
                 "model_number": {
-                    "query": query_text,
+                    "value": query_text,
                     "boost": weights['model_number']
                 }
             }
         })
     
     # Add product_id clause
-    if 'product_id' in weights and weights['product_id'] > 0:
+    if 'product_id' in weights:
         should_clauses.append({
-            "match": {
+            "term": {
                 "product_id": {
-                    "query": query_text,
+                    "value": query_text,
                     "boost": weights['product_id']
                 }
             }
@@ -264,7 +266,7 @@ def generate_standard_query(query_text, weights, multi_match_fields):
     
     return query
 
-def generate_reranking_query(query_text, weights, multi_match_fields):
+def generate_reranking_query(query_text, weights, multi_match_fields, rerank_field='description'):
     """Generate the reranking query using text_similarity_reranker structure"""
     
     # Build retrievers for the linear combination
@@ -281,7 +283,7 @@ def generate_reranking_query(query_text, weights, multi_match_fields):
     ]
     
     for field_name, field_path, default_weight in semantic_fields:
-        if field_name in weights and weights[field_name] > 0:
+        if field_name in weights:
             retrievers.append({
                 "normalizer": "minmax",
                 "retriever": {
@@ -300,7 +302,7 @@ def generate_reranking_query(query_text, weights, multi_match_fields):
             })
     
     # Add multi_match retriever
-    if 'multi_match' in weights and weights['multi_match'] > 0 and multi_match_fields:
+    if 'multi_match' in weights and multi_match_fields:
         retrievers.append({
             "normalizer": "minmax",
             "retriever": {
@@ -318,15 +320,15 @@ def generate_reranking_query(query_text, weights, multi_match_fields):
         })
     
     # Add model_number retriever
-    if 'model_number' in weights and weights['model_number'] > 0:
+    if 'model_number' in weights:
         retrievers.append({
             "normalizer": "minmax",
             "retriever": {
                 "standard": {
                     "query": {
-                        "match": {
+                        "term": {
                             "model_number": {
-                                "query": query_text,
+                                "value": query_text,
                                 "boost": weights['model_number']
                             }
                         }
@@ -337,15 +339,15 @@ def generate_reranking_query(query_text, weights, multi_match_fields):
         })
     
     # Add product_id retriever
-    if 'product_id' in weights and weights['product_id'] > 0:
+    if 'product_id' in weights:
         retrievers.append({
             "normalizer": "minmax",
             "retriever": {
                 "standard": {
                     "query": {
-                        "match": {
+                        "term": {
                             "product_id": {
-                                "query": query_text,
+                                "value": query_text,
                                 "boost": weights['product_id']
                             }
                         }
@@ -383,7 +385,7 @@ def generate_reranking_query(query_text, weights, multi_match_fields):
         },
         "retriever": {
             "text_similarity_reranker": {
-                "field": "description",  # Field to rerank on
+                "field": rerank_field,  # Field to rerank on
                 "inference_id": RERANK_INFERENCE_ID,
                 "inference_text": query_text,
                 "rank_window_size": 20,
