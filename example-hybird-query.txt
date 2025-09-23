@@ -1,0 +1,118 @@
+get ecommerce_shein_products/_search
+{
+  "_source": false,
+  "fields": [
+    "product_name",
+    "description"
+  ],
+  "highlight": {
+    "fields": {
+      "text": {
+        "number_of_fragments": 1,
+        "order": "score"
+      }
+    }
+  },
+  "retriever": {
+    "linear": {
+      "rank_window_size": 100,
+      "retrievers": [
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "description_semantic_elser": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "description_semantic_google": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "description_semantic_e5": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "product_name_semantic_elser": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "product_name_semantic_google": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "match": {
+                  "product_name_semantic_e5": "hello"
+                }
+              }
+            }
+          },
+          "weight": 2
+        },
+        {
+          "normalizer": "minmax",
+          "retriever": {
+            "standard": {
+              "query": {
+                "multi_match": {
+                  "query": "this is a test",
+                  "fields": [
+                    "description",
+                    "product_name"
+                  ]
+                }
+              }
+            }
+          },
+          "weight": 2
+        }
+      ]
+    }
+  }
+}

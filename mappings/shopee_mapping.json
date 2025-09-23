@@ -1,0 +1,159 @@
+{
+  "mappings": {
+    "properties": {
+      "url": {
+        "type": "keyword"
+      },
+      "id": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": ["title_semantic_elser", "title_semantic_google", "title_semantic_e5"]
+      },
+      "sold": {
+        "type": "integer"
+      },
+      "rating": {
+        "type": "float"
+      },
+      "reviews": {
+        "type": "integer"
+      },
+      "initial_price": {
+        "type": "float"
+      },
+      "final_price": {
+        "type": "float"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "stock": {
+        "type": "text"
+      },
+      "favorite": {
+        "type": "integer"
+      },
+      "image": {
+        "type": "object",
+        "enabled": false
+      },
+      "video": {
+        "type": "keyword"
+      },
+      "seller_name": {
+        "type": "keyword"
+      },
+      "shop_url": {
+        "type": "keyword"
+      },
+      "breadcrumb": {
+        "type": "object",
+        "enabled": false
+      },
+      "product_specifications": {
+        "type": "object",
+        "enabled": false
+      },
+      "product_description": {
+        "type": "text",
+        "analyzer": "standard",
+        "copy_to": ["description_semantic_elser", "description_semantic_google", "description_semantic_e5"]
+      },
+      "seller_rating": {
+        "type": "float"
+      },
+      "seller_products": {
+        "type": "integer"
+      },
+      "seller_chats_responded_percentage": {
+        "type": "float"
+      },
+      "seller_chat_time_reply": {
+        "type": "text"
+      },
+      "seller_joined_date": {
+        "type": "date"
+      },
+      "seller_followers": {
+        "type": "integer"
+      },
+      "variations": {
+        "type": "object",
+        "enabled": false
+      },
+      "domain": {
+        "type": "keyword"
+      },
+      "brand": {
+        "type": "keyword"
+      },
+      "category_id": {
+        "type": "keyword"
+      },
+      "flash_sale": {
+        "type": "boolean"
+      },
+      "flash_sale_time": {
+        "type": "text"
+      },
+      "product_variation": {
+        "type": "object",
+        "enabled": false
+      },
+      "gmv_cal": {
+        "type": "float"
+      },
+      "category_url": {
+        "type": "keyword"
+      },
+      "vouchers": {
+        "type": "text"
+      },
+      "is_available": {
+        "type": "boolean"
+      },
+      "seller_id": {
+        "type": "keyword"
+      },
+      "product_ratings": {
+        "type": "text"
+      },
+      "title_semantic_elser": {
+        "type": "semantic_text",
+        "inference_id": "${ELSER_INFERENCE_ID}",
+        "model_settings": {
+          "task_type": "sparse_embedding"
+        }
+      },
+      "title_semantic_google": {
+        "type": "semantic_text",
+        "inference_id": "${EMBEDDING_INFERENCE_ID}"
+      },
+      "title_semantic_e5": {
+        "type": "semantic_text",
+        "inference_id": "${E5_INFERENCE_ID}"
+      },
+      "description_semantic_elser": {
+        "type": "semantic_text",
+        "inference_id": "${ELSER_INFERENCE_ID}",
+        "model_settings": {
+          "task_type": "sparse_embedding"
+        }
+      },
+      "description_semantic_google": {
+        "type": "semantic_text",
+        "inference_id": "${EMBEDDING_INFERENCE_ID}"
+      },
+      "description_semantic_e5": {
+        "type": "semantic_text",
+        "inference_id": "${E5_INFERENCE_ID}"
+      },
+      "timestamp": {
+        "type": "date"
+      }
+    }
+  }
+}
