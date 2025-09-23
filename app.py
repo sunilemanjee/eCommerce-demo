@@ -52,6 +52,7 @@ ES_API_KEY = os.getenv('ES_API_KEY')
 ELSER_INFERENCE_ID = os.getenv('ELSER_INFERENCE_ID')
 EMBEDDING_INFERENCE_ID = os.getenv('EMBEDDING_INFERENCE_ID', '.elser-2-elasticsearch')
 E5_INFERENCE_ID = os.getenv('E5_INFERENCE_ID', '.elser-2-elasticsearch')
+RERANK_INFERENCE_ID = os.getenv('RERANK_INFERENCE_ID', '.rerank-v1-elasticsearch')
 
 # Initialize Elasticsearch client
 es = Elasticsearch(
@@ -68,7 +69,9 @@ DEFAULT_WEIGHTS = {
     'product_name_semantic_elser': 2,
     'product_name_semantic_google': 2,
     'product_name_semantic_e5': 2,
-    'multi_match': 2
+    'multi_match': 2,
+    'model_number': 2,
+    'product_id': 2
 }
 
 # Text fields available for multi_match
@@ -93,9 +96,10 @@ def search():
         query_text = data.get('query', '')
         weights = data.get('weights', DEFAULT_WEIGHTS)
         multi_match_fields = data.get('multi_match_fields', ['description', 'product_name'])
+        enable_reranking = data.get('enable_reranking', False)
         
         # Generate the hybrid query
-        search_query = generate_hybrid_query(query_text, weights, multi_match_fields)
+        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking)
         
         # Execute the search
         response = es.search(
@@ -106,7 +110,17 @@ def search():
         # Process results
         products = []
         for hit in response['hits']['hits']:
-            source = hit.get('_source', {})
+            # Handle both _source and fields response formats
+            if '_source' in hit:
+                source = hit['_source']
+            else:
+                # For reranking queries that use fields
+                source = {}
+                for field in hit.get('fields', {}):
+                    values = hit['fields'][field]
+                    # Take the first value if it's a list
+                    source[field] = values[0] if isinstance(values, list) and len(values) > 0 else values
+            
             product = {
                 'id': hit['_id'],
                 'score': hit['_score'],
@@ -117,7 +131,8 @@ def search():
                 'currency': source.get('currency', ''),
                 'rating': source.get('rating', 0),
                 'reviews_count': source.get('reviews_count', 0),
-                'in_stock': source.get('in_stock', False)
+                'in_stock': source.get('in_stock', False),
+                'model_number': source.get('model_number', '')
             }
             products.append(product)
         
@@ -141,9 +156,10 @@ def generate_query():
         query_text = data.get('query', '')
         weights = data.get('weights', DEFAULT_WEIGHTS)
         multi_match_fields = data.get('multi_match_fields', ['description', 'product_name'])
+        enable_reranking = data.get('enable_reranking', False)
         
         # Generate the hybrid query
-        search_query = generate_hybrid_query(query_text, weights, multi_match_fields)
+        search_query = generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking)
         
         return jsonify({
             'success': True,
@@ -156,8 +172,16 @@ def generate_query():
             'error': str(e)
         }), 500
 
-def generate_hybrid_query(query_text, weights, multi_match_fields):
-    """Generate the hybrid query using bool/should structure"""
+def generate_hybrid_query(query_text, weights, multi_match_fields, enable_reranking=False):
+    """Generate the hybrid query using bool/should structure or reranking structure"""
+    
+    if enable_reranking:
+        return generate_reranking_query(query_text, weights, multi_match_fields)
+    else:
+        return generate_standard_query(query_text, weights, multi_match_fields)
+
+def generate_standard_query(query_text, weights, multi_match_fields):
+    """Generate the standard hybrid query using bool/should structure"""
     
     # Build should clauses for hybrid search
     should_clauses = []
@@ -193,6 +217,28 @@ def generate_hybrid_query(query_text, weights, multi_match_fields):
             }
         })
     
+    # Add model_number clause
+    if 'model_number' in weights and weights['model_number'] > 0:
+        should_clauses.append({
+            "match": {
+                "model_number": {
+                    "query": query_text,
+                    "boost": weights['model_number']
+                }
+            }
+        })
+    
+    # Add product_id clause
+    if 'product_id' in weights and weights['product_id'] > 0:
+        should_clauses.append({
+            "match": {
+                "product_id": {
+                    "query": query_text,
+                    "boost": weights['product_id']
+                }
+            }
+        })
+    
     # Build the complete query
     query = {
         "query": {
@@ -210,6 +256,142 @@ def generate_hybrid_query(query_text, weights, multi_match_fields):
                 "description": {
                     "number_of_fragments": 1,
                     "order": "score"
+                }
+            }
+        },
+        "size": 20
+    }
+    
+    return query
+
+def generate_reranking_query(query_text, weights, multi_match_fields):
+    """Generate the reranking query using text_similarity_reranker structure"""
+    
+    # Build retrievers for the linear combination
+    retrievers = []
+    
+    # Add semantic search retrievers
+    semantic_fields = [
+        ('description_semantic_elser', 'description_semantic_elser', 2.0),
+        ('description_semantic_google', 'description_semantic_google', 2.0),
+        ('description_semantic_e5', 'description_semantic_e5', 2.0),
+        ('product_name_semantic_elser', 'product_name_semantic_elser', 2.0),
+        ('product_name_semantic_google', 'product_name_semantic_google', 2.0),
+        ('product_name_semantic_e5', 'product_name_semantic_e5', 2.0)
+    ]
+    
+    for field_name, field_path, default_weight in semantic_fields:
+        if field_name in weights and weights[field_name] > 0:
+            retrievers.append({
+                "normalizer": "minmax",
+                "retriever": {
+                    "standard": {
+                        "query": {
+                            "match": {
+                                field_path: {
+                                    "query": query_text,
+                                    "boost": weights[field_name]
+                                }
+                            }
+                        }
+                    }
+                },
+                "weight": weights[field_name]
+            })
+    
+    # Add multi_match retriever
+    if 'multi_match' in weights and weights['multi_match'] > 0 and multi_match_fields:
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "multi_match": {
+                            "query": query_text,
+                            "fields": multi_match_fields,
+                            "boost": weights['multi_match']
+                        }
+                    }
+                }
+            },
+            "weight": weights['multi_match']
+        })
+    
+    # Add model_number retriever
+    if 'model_number' in weights and weights['model_number'] > 0:
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "match": {
+                            "model_number": {
+                                "query": query_text,
+                                "boost": weights['model_number']
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['model_number']
+        })
+    
+    # Add product_id retriever
+    if 'product_id' in weights and weights['product_id'] > 0:
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "match": {
+                            "product_id": {
+                                "query": query_text,
+                                "boost": weights['product_id']
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['product_id']
+        })
+    
+    # Build the reranking query
+    query = {
+        "_source": False,
+        "fields": [
+            "product_name",
+            "description",
+            "main_image",
+            "final_price",
+            "currency",
+            "rating",
+            "reviews_count",
+            "in_stock",
+            "model_number"
+        ],
+        "highlight": {
+            "fields": {
+                "product_name": {
+                    "number_of_fragments": 1,
+                    "order": "score"
+                },
+                "description": {
+                    "number_of_fragments": 1,
+                    "order": "score"
+                }
+            }
+        },
+        "retriever": {
+            "text_similarity_reranker": {
+                "field": "description",  # Field to rerank on
+                "inference_id": RERANK_INFERENCE_ID,
+                "inference_text": query_text,
+                "rank_window_size": 20,
+                "retriever": {
+                    "linear": {
+                        "rank_window_size": 100,
+                        "retrievers": retrievers
+                    }
                 }
             }
         },

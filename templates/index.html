@@ -18,11 +18,6 @@
                         <i class="fas fa-cog"></i> Search Configuration
                     </h4>
                     
-                    <!-- Search Input -->
-                    <div class="mb-4">
-                        <label for="searchQuery" class="form-label">Search Query</label>
-                        <input type="text" class="form-control" id="searchQuery" placeholder="Enter your search query...">
-                    </div>
                     
                     <!-- Weight Configuration -->
                     <div class="mb-4">
@@ -56,6 +51,14 @@
                                 <label>Multi Match</label>
                                 <input type="number" class="form-control weight-input" data-field="multi_match" value="{{ default_weights.multi_match }}" min="0" max="10" step="0.1">
                             </div>
+                            <div class="weight-item">
+                                <label>Model Number</label>
+                                <input type="number" class="form-control weight-input" data-field="model_number" value="{{ default_weights.model_number }}" min="0" max="10" step="0.1">
+                            </div>
+                            <div class="weight-item">
+                                <label>Product ID</label>
+                                <input type="number" class="form-control weight-input" data-field="product_id" value="{{ default_weights.product_id }}" min="0" max="10" step="0.1">
+                            </div>
                         </div>
                     </div>
                     
@@ -73,10 +76,20 @@
                         </div>
                     </div>
                     
-                    <!-- Search Button -->
-                    <button class="btn btn-primary w-100 mb-3" id="searchBtn">
-                        <i class="fas fa-search"></i> Search
-                    </button>
+                    <!-- Semantic Reranking -->
+                    <div class="mb-4">
+                        <h6>Advanced Options</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableReranking">
+                            <label class="form-check-label" for="enableReranking">
+                                <i class="fas fa-sort-amount-up"></i> Enable Semantic Reranking
+                            </label>
+                            <small class="form-text text-muted d-block">
+                                Uses advanced reranking to improve search relevance
+                            </small>
+                        </div>
+                    </div>
+                    
                     
                     <!-- Show Generated Query Button -->
                     <button class="btn btn-outline-secondary w-100" id="showQueryBtn">
@@ -96,6 +109,16 @@
                         </div>
                     </div>
                     
+                    <!-- Search Bar -->
+                    <div class="search-bar-container mb-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-lg" id="searchQuery" placeholder="Search for products...">
+                            <button class="btn btn-primary btn-lg" type="button" id="searchBtn">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    
                     <!-- Query Display Modal -->
                     <div class="modal fade" id="queryModal" tabindex="-1">
                         <div class="modal-dialog modal-lg">
@@ -110,6 +133,61 @@
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                     <button type="button" class="btn btn-primary" id="copyQueryBtn">Copy Query</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Product Detail Modal -->
+                    <div class="modal fade" id="productDetailModal" tabindex="-1">
+                        <div class="modal-dialog modal-xl">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="productDetailTitle">Product Details</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="product-detail-image-container">
+                                                <img id="productDetailImage" src="" alt="Product Image" class="product-detail-image">
+                                                <div id="productDetailImagePlaceholder" class="product-detail-image-placeholder" style="display: none;">
+                                                    <i class="fas fa-image"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="product-detail-info">
+                                                <h3 id="productDetailName" class="product-detail-name"></h3>
+                                                <div id="productDetailPrice" class="product-detail-price"></div>
+                                                <div id="productDetailRating" class="product-detail-rating"></div>
+                                                <div id="productDetailStock" class="product-detail-stock"></div>
+                                                <div class="product-detail-description">
+                                                    <h6>Description</h6>
+                                                    <p id="productDetailDescription"></p>
+                                                </div>
+                                                <div class="product-detail-meta">
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <strong>Product ID:</strong>
+                                                            <span id="productDetailId"></span>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <strong>Model Number:</strong>
+                                                            <span id="productDetailModelNumber"></span>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <strong>Search Score:</strong>
+                                                            <span id="productDetailScore"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                 </div>
                             </div>
                         </div>

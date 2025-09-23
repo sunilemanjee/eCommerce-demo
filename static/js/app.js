@@ -9,9 +9,12 @@ class EcommerceSearch {
             product_name_semantic_elser: 2,
             product_name_semantic_google: 2,
             product_name_semantic_e5: 2,
-            multi_match: 2
+            multi_match: 2,
+            model_number: 2,
+            product_id: 2
         };
         this.multiMatchFields = ['description', 'product_name'];
+        this.enableReranking = false;
         this.queryUpdateTimeout = null;
         this.currentQuery = '';
         
@@ -47,6 +50,12 @@ class EcommerceSearch {
             });
         });
         
+        // Reranking checkbox
+        document.getElementById('enableReranking').addEventListener('change', (e) => {
+            this.enableReranking = e.target.checked;
+            this.scheduleQueryUpdate();
+        });
+        
         // Show query button
         document.getElementById('showQueryBtn').addEventListener('click', () => {
             this.showGeneratedQuery();
@@ -55,6 +64,15 @@ class EcommerceSearch {
         // Copy query button
         document.getElementById('copyQueryBtn').addEventListener('click', () => {
             this.copyQuery();
+        });
+        
+        // Product card clicks (using event delegation)
+        document.getElementById('resultsGrid').addEventListener('click', (e) => {
+            const productCard = e.target.closest('.product-card');
+            if (productCard) {
+                const productData = JSON.parse(productCard.dataset.product);
+                this.showProductDetail(productData);
+            }
         });
     }
     
@@ -110,7 +128,8 @@ class EcommerceSearch {
                 body: JSON.stringify({
                     query: query,
                     weights: this.weights,
-                    multi_match_fields: this.multiMatchFields
+                    multi_match_fields: this.multiMatchFields,
+                    enable_reranking: this.enableReranking
                 })
             });
             
@@ -141,7 +160,8 @@ class EcommerceSearch {
                 body: JSON.stringify({
                     query: query,
                     weights: this.weights,
-                    multi_match_fields: this.multiMatchFields
+                    multi_match_fields: this.multiMatchFields,
+                    enable_reranking: this.enableReranking
                 })
             });
             
@@ -210,7 +230,7 @@ class EcommerceSearch {
         
         return `
             <div class="col-lg-4 col-md-6 mb-4">
-                <div class="product-card">
+                <div class="product-card" data-product='${JSON.stringify(product)}' style="cursor: pointer;">
                     ${imageHtml}
                     ${placeholderHtml}
                     <div class="product-info">
@@ -269,7 +289,8 @@ class EcommerceSearch {
                     body: JSON.stringify({
                         query: query,
                         weights: this.weights,
-                        multi_match_fields: this.multiMatchFields
+                        multi_match_fields: this.multiMatchFields,
+                        enable_reranking: this.enableReranking
                     })
                 });
                 
@@ -311,6 +332,68 @@ class EcommerceSearch {
             console.error('Failed to copy query: ', err);
             alert('Failed to copy query to clipboard');
         });
+    }
+    
+    showProductDetail(product) {
+        // Populate modal with product data
+        document.getElementById('productDetailTitle').textContent = product.product_name || 'Product Details';
+        document.getElementById('productDetailName').textContent = product.product_name || 'No name available';
+        document.getElementById('productDetailId').textContent = product.id || 'N/A';
+        document.getElementById('productDetailModelNumber').textContent = product.model_number || 'N/A';
+        document.getElementById('productDetailScore').textContent = product.score ? product.score.toFixed(2) : 'N/A';
+        
+        // Handle product image
+        const productImage = document.getElementById('productDetailImage');
+        const imagePlaceholder = document.getElementById('productDetailImagePlaceholder');
+        
+        if (product.main_image) {
+            productImage.src = product.main_image;
+            productImage.style.display = 'block';
+            imagePlaceholder.style.display = 'none';
+            productImage.onerror = () => {
+                productImage.style.display = 'none';
+                imagePlaceholder.style.display = 'flex';
+            };
+        } else {
+            productImage.style.display = 'none';
+            imagePlaceholder.style.display = 'flex';
+        }
+        
+        // Handle price
+        const priceElement = document.getElementById('productDetailPrice');
+        if (product.final_price) {
+            priceElement.innerHTML = `<strong>${product.currency} ${product.final_price.toFixed(2)}</strong>`;
+            priceElement.style.display = 'block';
+        } else {
+            priceElement.style.display = 'none';
+        }
+        
+        // Handle rating
+        const ratingElement = document.getElementById('productDetailRating');
+        if (product.rating) {
+            const stars = '★'.repeat(Math.floor(product.rating)) + '☆'.repeat(5 - Math.floor(product.rating));
+            ratingElement.innerHTML = `
+                <span class="rating-stars">${stars}</span>
+                <span class="rating-text">${product.rating.toFixed(1)} (${product.reviews_count} reviews)</span>
+            `;
+            ratingElement.style.display = 'flex';
+        } else {
+            ratingElement.style.display = 'none';
+        }
+        
+        // Handle stock status
+        const stockElement = document.getElementById('productDetailStock');
+        const stockBadge = product.in_stock ? 'In Stock' : 'Out of Stock';
+        const stockClass = product.in_stock ? 'stock-in' : 'stock-out';
+        stockElement.innerHTML = `<span class="stock-badge ${stockClass}">${stockBadge}</span>`;
+        
+        // Handle description
+        const descriptionElement = document.getElementById('productDetailDescription');
+        descriptionElement.textContent = product.description || 'No description available';
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('productDetailModal'));
+        modal.show();
     }
 }
 
