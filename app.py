@@ -125,6 +125,7 @@ def search():
             product = {
                 'id': hit['_id'],
                 'score': hit['_score'],
+                'product_id': source.get('product_id', ''),
                 'product_name': source.get('product_name', ''),
                 'description': source.get('description', ''),
                 'main_image': source.get('main_image', ''),
@@ -166,6 +167,96 @@ def generate_query():
         return jsonify({
             'success': True,
             'query': search_query
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/recommendations', methods=['POST'])
+def get_recommendations():
+    try:
+        data = request.get_json()
+        product_id = data.get('product_id', '')
+        
+        if not product_id:
+            return jsonify({
+                'success': False,
+                'error': 'Product ID is required'
+            }), 400
+        
+        # Query the recommendations index
+        recommendation_query = {
+            "query": {
+                "term": {
+                    "product_id": product_id
+                }
+            },
+            "size": 1
+        }
+        
+        recommendation_response = es.search(
+            index='ecommerce_shein_recommendations',
+            body=recommendation_query
+        )
+        
+        if not recommendation_response['hits']['hits']:
+            return jsonify({
+                'success': True,
+                'recommendations': []
+            })
+        
+        # Extract recommended product IDs from the recommendation field
+        recommendation_doc = recommendation_response['hits']['hits'][0]['_source']
+        recommendation_field = recommendation_doc.get('recommendation', {})
+        
+        # Get the top recommended product IDs (rank_features field contains product_id: score pairs)
+        recommended_product_ids = []
+        if recommendation_field:
+            # Sort by score and get top 5 recommendations
+            sorted_recommendations = sorted(recommendation_field.items(), key=lambda x: x[1], reverse=True)
+            recommended_product_ids = [product_id for product_id, score in sorted_recommendations[:5]]
+        
+        if not recommended_product_ids:
+            return jsonify({
+                'success': True,
+                'recommendations': []
+            })
+        
+        # Query the products index to get full product details for recommended items
+        # The recommended_product_ids are actually Elasticsearch document IDs, not product_id field values
+        products_response = es.mget(
+            index='ecommerce_shein_products',
+            body={
+                "ids": recommended_product_ids
+            }
+        )
+        
+        # Process recommended products
+        recommendations = []
+        for doc in products_response['docs']:
+            if doc.get('found', False):
+                source = doc['_source']
+                product = {
+                    'id': doc['_id'],
+                    'product_id': source.get('product_id', ''),
+                    'product_name': source.get('product_name', ''),
+                    'description': source.get('description', ''),
+                    'main_image': source.get('main_image', ''),
+                    'final_price': source.get('final_price', 0),
+                    'currency': source.get('currency', ''),
+                    'rating': source.get('rating', 0),
+                    'reviews_count': source.get('reviews_count', 0),
+                    'in_stock': source.get('in_stock', False),
+                    'model_number': source.get('model_number', '')
+                }
+                recommendations.append(product)
+        
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations
         })
         
     except Exception as e:

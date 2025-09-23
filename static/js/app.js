@@ -87,6 +87,15 @@ class EcommerceSearch {
                 this.showProductDetail(productData);
             }
         });
+        
+        // Recommendation card clicks (using event delegation)
+        document.addEventListener('click', (e) => {
+            const recommendationCard = e.target.closest('.recommendation-card');
+            if (recommendationCard) {
+                const productData = JSON.parse(recommendationCard.dataset.product);
+                this.showProductDetail(productData);
+            }
+        });
     }
     
     loadInitialData() {
@@ -402,11 +411,11 @@ class EcommerceSearch {
         });
     }
     
-    showProductDetail(product) {
+    async showProductDetail(product) {
         // Populate modal with product data
         document.getElementById('productDetailTitle').textContent = product.product_name || 'Product Details';
         document.getElementById('productDetailName').textContent = product.product_name || 'No name available';
-        document.getElementById('productDetailId').textContent = product.id || 'N/A';
+        document.getElementById('productDetailId').textContent = product.product_id || 'N/A';
         document.getElementById('productDetailModelNumber').textContent = product.model_number || 'N/A';
         document.getElementById('productDetailScore').textContent = product.score ? product.score.toFixed(2) : 'N/A';
         
@@ -459,9 +468,121 @@ class EcommerceSearch {
         const descriptionElement = document.getElementById('productDetailDescription');
         descriptionElement.textContent = product.description || 'No description available';
         
+        // Show loading for recommendations
+        this.showRecommendationsLoading();
+        
         // Show the modal
         const modal = new bootstrap.Modal(document.getElementById('productDetailModal'));
         modal.show();
+        
+        // Fetch and display recommendations
+        await this.loadRecommendations(product.id);
+    }
+    
+    showRecommendationsLoading() {
+        const recommendationsContainer = document.getElementById('recommendationsContainer');
+        recommendationsContainer.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="ms-2">Loading recommendations...</span>
+            </div>
+        `;
+    }
+    
+    async loadRecommendations(productId) {
+        try {
+            const response = await fetch('/recommendations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    product_id: productId
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.displayRecommendations(data.recommendations);
+            } else {
+                this.showRecommendationsError(data.error || 'Failed to load recommendations');
+            }
+        } catch (error) {
+            this.showRecommendationsError('Network error: ' + error.message);
+        }
+    }
+    
+    displayRecommendations(recommendations) {
+        const recommendationsContainer = document.getElementById('recommendationsContainer');
+        
+        if (!recommendations || recommendations.length === 0) {
+            recommendationsContainer.innerHTML = `
+                <div class="text-center py-3 text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    <span class="ms-2">No recommendations available for this product</span>
+                </div>
+            `;
+            return;
+        }
+        
+        const recommendationsHtml = recommendations.map(product => this.createRecommendationCard(product)).join('');
+        
+        recommendationsContainer.innerHTML = `
+            <div class="recommendations-section">
+                <h6 class="recommendations-title">
+                    <i class="fas fa-thumbs-up"></i> Frequently Bought Together
+                </h6>
+                <div class="recommendations-grid">
+                    ${recommendationsHtml}
+                </div>
+            </div>
+        `;
+    }
+    
+    createRecommendationCard(product) {
+        const imageHtml = product.main_image 
+            ? `<img src="${product.main_image}" alt="${product.product_name}" class="recommendation-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+            : '';
+        
+        const placeholderHtml = `<div class="recommendation-image-placeholder" style="display: ${product.main_image ? 'none' : 'flex'};">
+            <i class="fas fa-image"></i>
+        </div>`;
+        
+        const priceHtml = product.final_price 
+            ? `<div class="recommendation-price">${product.currency} ${product.final_price.toFixed(2)}</div>`
+            : '';
+        
+        const ratingHtml = product.rating 
+            ? `<div class="recommendation-rating">
+                <span class="rating-stars">${'★'.repeat(Math.floor(product.rating))}${'☆'.repeat(5 - Math.floor(product.rating))}</span>
+                <span class="rating-text">${product.rating.toFixed(1)}</span>
+            </div>`
+            : '';
+        
+        return `
+            <div class="recommendation-card" data-product='${JSON.stringify(product)}' style="cursor: pointer;">
+                ${imageHtml}
+                ${placeholderHtml}
+                <div class="recommendation-info">
+                    <h6 class="recommendation-name">${product.product_name || 'No name available'}</h6>
+                    ${priceHtml}
+                    ${ratingHtml}
+                </div>
+            </div>
+        `;
+    }
+    
+    showRecommendationsError(errorMessage) {
+        const recommendationsContainer = document.getElementById('recommendationsContainer');
+        recommendationsContainer.innerHTML = `
+            <div class="text-center py-3 text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span class="ms-2">Error loading recommendations: ${errorMessage}</span>
+            </div>
+        `;
     }
 }
 
