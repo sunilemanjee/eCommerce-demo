@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "elasticsearch-ecommerce": {
+      "command": "python",
+      "args": ["/Users/sunilemanjee/Documents/GitHub/eCommerce-demo/MCP/server.py"],
+      "env": {
+        "ES_URL": "${ES_URL}",
+        "ES_API_KEY": "${ES_API_KEY}",
+        "RERANK_INFERENCE_ID": "${RERANK_INFERENCE_ID}"
+      }
+    }
+  }
+}

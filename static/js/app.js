@@ -4,14 +4,25 @@ class EcommerceSearch {
     constructor() {
         this.weights = {
             description_semantic_elser: 2,
-            description_semantic_google: 2,
+            description_semantic_google: 2.5,
             description_semantic_e5: 2,
             product_name_semantic_elser: 2,
-            product_name_semantic_google: 2,
+            product_name_semantic_google: 2.5,
             product_name_semantic_e5: 2,
             multi_match: 2,
-            model_number: 2,
-            product_id: 2
+            model_number: 1.0,
+            product_id: 2.9
+        };
+        this.enabledFields = {
+            description_semantic_elser: false,
+            description_semantic_google: true,
+            description_semantic_e5: false,
+            product_name_semantic_elser: false,
+            product_name_semantic_google: true,
+            product_name_semantic_e5: false,
+            multi_match: false,
+            model_number: true,
+            product_id: true
         };
         this.multiMatchFields = ['description', 'product_name'];
         this.enableReranking = false;
@@ -40,6 +51,13 @@ class EcommerceSearch {
         document.querySelectorAll('.weight-slider').forEach(slider => {
             slider.addEventListener('input', (e) => {
                 this.handleWeightChange(e.target);
+            });
+        });
+        
+        // Field enable/disable checkboxes
+        document.querySelectorAll('.field-enable-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.handleFieldEnableChange(e.target);
             });
         });
         
@@ -99,8 +117,43 @@ class EcommerceSearch {
     }
     
     loadInitialData() {
+        // Initialize visual state of field checkboxes and sliders
+        this.initializeFieldStates();
+        
         // Load some initial products on page load
         this.performSearch();
+    }
+    
+    initializeFieldStates() {
+        // Set the visual state of all fields based on enabledFields
+        document.querySelectorAll('.field-enable-checkbox').forEach(checkbox => {
+            const field = checkbox.dataset.field;
+            const isEnabled = this.enabledFields[field];
+            
+            // Set checkbox state
+            checkbox.checked = isEnabled;
+            
+            // Set visual state of slider and container
+            const weightItem = checkbox.closest('.weight-item');
+            const slider = weightItem.querySelector('.weight-slider');
+            const valueDisplay = weightItem.querySelector('.slider-value');
+            
+            if (isEnabled) {
+                slider.disabled = false;
+                slider.classList.remove('disabled');
+                weightItem.classList.remove('disabled');
+                if (valueDisplay) {
+                    valueDisplay.classList.remove('disabled');
+                }
+            } else {
+                slider.disabled = true;
+                slider.classList.add('disabled');
+                weightItem.classList.add('disabled');
+                if (valueDisplay) {
+                    valueDisplay.classList.add('disabled');
+                }
+            }
+        });
     }
     
     handleWeightChange(slider) {
@@ -132,9 +185,51 @@ class EcommerceSearch {
         this.scheduleQueryUpdate();
     }
     
+    handleFieldEnableChange(checkbox) {
+        const field = checkbox.dataset.field;
+        const isEnabled = checkbox.checked;
+        
+        // Update enabled fields object
+        this.enabledFields[field] = isEnabled;
+        
+        // Update visual state of the slider
+        const weightItem = checkbox.closest('.weight-item');
+        const slider = weightItem.querySelector('.weight-slider');
+        const valueDisplay = weightItem.querySelector('.slider-value');
+        
+        if (isEnabled) {
+            slider.disabled = false;
+            slider.classList.remove('disabled');
+            weightItem.classList.remove('disabled');
+            if (valueDisplay) {
+                valueDisplay.classList.remove('disabled');
+            }
+        } else {
+            slider.disabled = true;
+            slider.classList.add('disabled');
+            weightItem.classList.add('disabled');
+            if (valueDisplay) {
+                valueDisplay.classList.add('disabled');
+            }
+        }
+        
+        // Schedule query update with 2-second delay
+        this.scheduleQueryUpdate();
+    }
+    
     updateMultiMatchFields() {
         this.multiMatchFields = Array.from(document.querySelectorAll('.multi-match-checkbox:checked'))
             .map(checkbox => checkbox.value);
+    }
+    
+    getEnabledWeights() {
+        const enabledWeights = {};
+        for (const [field, weight] of Object.entries(this.weights)) {
+            if (this.enabledFields[field]) {
+                enabledWeights[field] = weight;
+            }
+        }
+        return enabledWeights;
     }
     
     toggleRerankFieldSelection() {
@@ -201,7 +296,7 @@ class EcommerceSearch {
                 },
                 body: JSON.stringify({
                     query: query,
-                    weights: this.weights,
+                    weights: this.getEnabledWeights(),
                     multi_match_fields: this.multiMatchFields,
                     enable_reranking: this.enableReranking,
                     rerank_field: this.rerankField
@@ -234,7 +329,7 @@ class EcommerceSearch {
                 },
                 body: JSON.stringify({
                     query: query,
-                    weights: this.weights,
+                    weights: this.getEnabledWeights(),
                     multi_match_fields: this.multiMatchFields,
                     enable_reranking: this.enableReranking,
                     rerank_field: this.rerankField
@@ -364,7 +459,7 @@ class EcommerceSearch {
                     },
                     body: JSON.stringify({
                         query: query,
-                        weights: this.weights,
+                        weights: this.getEnabledWeights(),
                         multi_match_fields: this.multiMatchFields,
                         enable_reranking: this.enableReranking,
                         rerank_field: this.rerankField
@@ -412,6 +507,10 @@ class EcommerceSearch {
     }
     
     async showProductDetail(product) {
+        console.log('DEBUG: Product object in showProductDetail:', product);
+        console.log('DEBUG: product.product_id:', product.product_id);
+        console.log('DEBUG: product.id:', product.id);
+        
         // Populate modal with product data
         document.getElementById('productDetailTitle').textContent = product.product_name || 'Product Details';
         document.getElementById('productDetailName').textContent = product.product_name || 'No name available';
@@ -476,7 +575,7 @@ class EcommerceSearch {
         modal.show();
         
         // Fetch and display recommendations
-        await this.loadRecommendations(product.id);
+        await this.loadRecommendations(product.product_id);
     }
     
     showRecommendationsLoading() {
@@ -493,6 +592,7 @@ class EcommerceSearch {
     
     async loadRecommendations(productId) {
         try {
+            console.log('DEBUG: Loading recommendations for productId:', productId);
             const response = await fetch('/recommendations', {
                 method: 'POST',
                 headers: {

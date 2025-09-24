@@ -24,63 +24,90 @@
                         <h6>Field Weights</h6>
                         <div class="weight-config">
                             <div class="weight-item">
-                                <label>Description ELSER</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="description_semantic_elser">
+                                    <label class="form-check-label mb-0">Description ELSER</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="description_semantic_elser" value="{{ default_weights.description_semantic_elser }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.description_semantic_elser }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Description Google</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="description_semantic_google" checked>
+                                    <label class="form-check-label mb-0">Description Google</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="description_semantic_google" value="{{ default_weights.description_semantic_google }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.description_semantic_google }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Description E5</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="description_semantic_e5">
+                                    <label class="form-check-label mb-0">Description E5</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="description_semantic_e5" value="{{ default_weights.description_semantic_e5 }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.description_semantic_e5 }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Product Name ELSER</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="product_name_semantic_elser">
+                                    <label class="form-check-label mb-0">Product Name ELSER</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="product_name_semantic_elser" value="{{ default_weights.product_name_semantic_elser }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.product_name_semantic_elser }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Product Name Google</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="product_name_semantic_google" checked>
+                                    <label class="form-check-label mb-0">Product Name Google</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="product_name_semantic_google" value="{{ default_weights.product_name_semantic_google }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.product_name_semantic_google }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Product Name E5</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="product_name_semantic_e5">
+                                    <label class="form-check-label mb-0">Product Name E5</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="product_name_semantic_e5" value="{{ default_weights.product_name_semantic_e5 }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.product_name_semantic_e5 }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Multi Match</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="multi_match">
+                                    <label class="form-check-label mb-0">Multi Match</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="multi_match" value="{{ default_weights.multi_match }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.multi_match }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Model Number</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="model_number" checked>
+                                    <label class="form-check-label mb-0">Model Number</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="model_number" value="{{ default_weights.model_number }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.model_number }}</span>
                                 </div>
                             </div>
                             <div class="weight-item">
-                                <label>Product ID</label>
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input field-enable-checkbox me-2" data-field="product_id" checked>
+                                    <label class="form-check-label mb-0">Product ID</label>
+                                </div>
                                 <div class="slider-container">
                                     <input type="range" class="form-range weight-slider" data-field="product_id" value="{{ default_weights.product_id }}" min="0" max="10" step="0.1">
                                     <span class="slider-value">{{ default_weights.product_id }}</span>

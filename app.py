@@ -53,6 +53,8 @@ ELSER_INFERENCE_ID = os.getenv('ELSER_INFERENCE_ID')
 EMBEDDING_INFERENCE_ID = os.getenv('EMBEDDING_INFERENCE_ID', '.elser-2-elasticsearch')
 E5_INFERENCE_ID = os.getenv('E5_INFERENCE_ID', '.elser-2-elasticsearch')
 RERANK_INFERENCE_ID = os.getenv('RERANK_INFERENCE_ID', '.rerank-v1-elasticsearch')
+INDEX_NAME = os.getenv('INDEX_NAME', 'ecommerce_shein_products')
+RECOMMENDATION_ENGINE_INDEX_NAME = os.getenv('RECOMMENDATION_ENGINE_INDEX_NAME', 'ecommerce_shein_recommendations')
 
 # Initialize Elasticsearch client
 es = Elasticsearch(
@@ -64,14 +66,14 @@ es = Elasticsearch(
 # Default weights for the hybrid query
 DEFAULT_WEIGHTS = {
     'description_semantic_elser': 2,
-    'description_semantic_google': 2,
+    'description_semantic_google': 2.5,
     'description_semantic_e5': 2,
     'product_name_semantic_elser': 2,
-    'product_name_semantic_google': 2,
+    'product_name_semantic_google': 2.5,
     'product_name_semantic_e5': 2,
     'multi_match': 2,
-    'model_number': 2,
-    'product_id': 2
+    'model_number': 1.0,
+    'product_id': 2.9
 }
 
 # Text fields available for multi_match
@@ -104,7 +106,7 @@ def search():
         
         # Execute the search
         response = es.search(
-            index='ecommerce_shein_products',
+            index=INDEX_NAME,
             body=search_query
         )
         
@@ -179,7 +181,10 @@ def generate_query():
 def get_recommendations():
     try:
         data = request.get_json()
+        print(f"DEBUG: Received data: {data}")
         product_id = data.get('product_id', '')
+        
+        print(f"DEBUG: Looking for recommendations for product_id: {product_id}")
         
         if not product_id:
             return jsonify({
@@ -198,11 +203,14 @@ def get_recommendations():
         }
         
         recommendation_response = es.search(
-            index='ecommerce_shein_recommendations',
+            index=RECOMMENDATION_ENGINE_INDEX_NAME,
             body=recommendation_query
         )
         
+        print(f"DEBUG: Recommendation query response: {recommendation_response}")
+        
         if not recommendation_response['hits']['hits']:
+            print(f"DEBUG: No recommendations found for product_id: {product_id}")
             return jsonify({
                 'success': True,
                 'recommendations': []
@@ -218,41 +226,49 @@ def get_recommendations():
             # Sort by score and get top 5 recommendations
             sorted_recommendations = sorted(recommendation_field.items(), key=lambda x: x[1], reverse=True)
             recommended_product_ids = [product_id for product_id, score in sorted_recommendations[:5]]
+            print(f"DEBUG: Found recommended product IDs: {recommended_product_ids}")
         
         if not recommended_product_ids:
+            print(f"DEBUG: No recommended product IDs found")
             return jsonify({
                 'success': True,
                 'recommendations': []
             })
         
         # Query the products index to get full product details for recommended items
-        # The recommended_product_ids are actually Elasticsearch document IDs, not product_id field values
-        products_response = es.mget(
-            index='ecommerce_shein_products',
-            body={
-                "ids": recommended_product_ids
-            }
+        # Search by product_id field using terms query
+        products_query = {
+            "query": {
+                "terms": {
+                    "product_id": recommended_product_ids
+                }
+            },
+            "size": len(recommended_product_ids)
+        }
+        
+        products_response = es.search(
+            index=INDEX_NAME,
+            body=products_query
         )
         
         # Process recommended products
         recommendations = []
-        for doc in products_response['docs']:
-            if doc.get('found', False):
-                source = doc['_source']
-                product = {
-                    'id': doc['_id'],
-                    'product_id': source.get('product_id', ''),
-                    'product_name': source.get('product_name', ''),
-                    'description': source.get('description', ''),
-                    'main_image': source.get('main_image', ''),
-                    'final_price': source.get('final_price', 0),
-                    'currency': source.get('currency', ''),
-                    'rating': source.get('rating', 0),
-                    'reviews_count': source.get('reviews_count', 0),
-                    'in_stock': source.get('in_stock', False),
-                    'model_number': source.get('model_number', '')
-                }
-                recommendations.append(product)
+        for hit in products_response['hits']['hits']:
+            source = hit['_source']
+            product = {
+                'id': hit['_id'],
+                'product_id': source.get('product_id', ''),
+                'product_name': source.get('product_name', ''),
+                'description': source.get('description', ''),
+                'main_image': source.get('main_image', ''),
+                'final_price': source.get('final_price', 0),
+                'currency': source.get('currency', ''),
+                'rating': source.get('rating', 0),
+                'reviews_count': source.get('reviews_count', 0),
+                'in_stock': source.get('in_stock', False),
+                'model_number': source.get('model_number', '')
+            }
+            recommendations.append(product)
         
         return jsonify({
             'success': True,
@@ -310,7 +326,7 @@ def generate_standard_query(query_text, weights, multi_match_fields):
             }
         })
     
-    # Add model_number clause
+    # Add model_number clauses (term, prefix, wildcard)
     if 'model_number' in weights:
         should_clauses.append({
             "term": {
@@ -320,14 +336,46 @@ def generate_standard_query(query_text, weights, multi_match_fields):
                 }
             }
         })
+        should_clauses.append({
+            "prefix": {
+                "model_number": {
+                    "boost": weights['model_number'],
+                    "value": query_text
+                }
+            }
+        })
+        should_clauses.append({
+            "wildcard": {
+                "model_number": {
+                    "boost": weights['model_number'],
+                    "value": f"*{query_text}*"
+                }
+            }
+        })
     
-    # Add product_id clause
+    # Add product_id clauses (term, prefix, wildcard)
     if 'product_id' in weights:
         should_clauses.append({
             "term": {
                 "product_id": {
                     "value": query_text,
                     "boost": weights['product_id']
+                }
+            }
+        })
+        should_clauses.append({
+            "prefix": {
+                "product_id": {
+                    "boost": weights['product_id'],
+                    "value": query_text
+                }
+            }
+        })
+        should_clauses.append({
+            "wildcard": {
+                "product_id": {
+                    "boost": weights['product_id'],
+                    "value": f"*{query_text}*"
                 }
             }
         })
@@ -410,8 +458,9 @@ def generate_reranking_query(query_text, weights, multi_match_fields, rerank_fie
             "weight": weights['multi_match']
         })
     
-    # Add model_number retriever
+    # Add model_number retrievers (term, prefix, wildcard)
     if 'model_number' in weights:
+        # Term query
         retrievers.append({
             "normalizer": "minmax",
             "retriever": {
@@ -428,9 +477,44 @@ def generate_reranking_query(query_text, weights, multi_match_fields, rerank_fie
             },
             "weight": weights['model_number']
         })
+        # Prefix query
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "prefix": {
+                            "model_number": {
+                                "boost": weights['model_number'],
+                                "value": query_text
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['model_number']
+        })
+        # Wildcard query
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "wildcard": {
+                            "model_number": {
+                                "boost": weights['model_number'],
+                                "value": f"*{query_text}*"
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['model_number']
+        })
     
-    # Add product_id retriever
+    # Add product_id retrievers (term, prefix, wildcard)
     if 'product_id' in weights:
+        # Term query
         retrievers.append({
             "normalizer": "minmax",
             "retriever": {
@@ -440,6 +524,40 @@ def generate_reranking_query(query_text, weights, multi_match_fields, rerank_fie
                             "product_id": {
                                 "value": query_text,
                                 "boost": weights['product_id']
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['product_id']
+        })
+        # Prefix query
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "prefix": {
+                            "product_id": {
+                                "boost": weights['product_id'],
+                                "value": query_text
+                            }
+                        }
+                    }
+                }
+            },
+            "weight": weights['product_id']
+        })
+        # Wildcard query
+        retrievers.append({
+            "normalizer": "minmax",
+            "retriever": {
+                "standard": {
+                    "query": {
+                        "wildcard": {
+                            "product_id": {
+                                "boost": weights['product_id'],
+                                "value": f"*{query_text}*"
                             }
                         }
                     }
