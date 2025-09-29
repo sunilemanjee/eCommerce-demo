@@ -46,3 +46,6 @@ echo -e "${GREEN}Starting MCP server...${NC}"
 
 # Run the MCP server
 python server.py
+
+
+

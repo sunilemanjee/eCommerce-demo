@@ -10,7 +10,7 @@ class EcommerceSearch {
             product_name_semantic_google: 2.5,
             product_name_semantic_e5: 2,
             multi_match: 2,
-            model_number: 1.0,
+            model_number: 2.9,
             product_id: 2.9
         };
         this.enabledFields = {
