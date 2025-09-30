@@ -4,9 +4,9 @@ A collection of Flask-based e-commerce search applications that demonstrate diff
 
 ## Applications Overview
 
-This repository contains three different search applications:
+This repository contains three individual search applications that can be run simultaneously:
 
-### 1. **Original Complex App** (Port 8080)
+### 1. **Hybrid Search App** (Port 8080)
 - **Hybrid Search**: Combines multiple semantic search models (ELSER, Google, E5) with traditional text search
 - **Configurable Weights**: Adjust search field weights in real-time through a left sidebar
 - **Multi-Match Fields**: Select which text fields to include in multi-match queries
@@ -15,8 +15,8 @@ This repository contains three different search applications:
 - **Responsive Design**: Modern, mobile-friendly interface
 - **Real-time Updates**: 2-second debounced updates when changing weights
 
-### 2. **Synonyms App** (Port 8046)
-- **Simple Search**: Clean, focused interface for basic product search
+### 2. **Synonym App** (Port 8046)
+- **Synonym Search**: Clean, focused interface for synonym-based product search
 - **Synonyms Index**: Uses `ecommerce_shein_products_with_synonyms` index
 - **Match Query**: Simple match query on `product_name` field
 - **Highlights**: Shows search term highlights in results
@@ -68,59 +68,58 @@ export EMBEDDING_INFERENCE_ID="google_vertex_ai_embeddings"
 export E5_INFERENCE_ID=".multilingual-e5-small-elasticsearch"
 export INDEX_NAME="ecommerce_shein_products"
 export INDEX_WITH_SYNONYMS="ecommerce_shein_products_with_synonyms"
+export UI_PORT="8533"
 ```
 
 ## Running the Applications
 
-### Option 1: Run All Applications (Recommended)
+### 🚀 **Recommended: Run All Applications**
 ```bash
-./run_all_apps.sh
+./run_apps.sh
 ```
-This will start all three applications simultaneously:
-- **Original Complex App**: http://localhost:8080
-- **Synonyms App**: http://localhost:8046
+This will start all three individual applications simultaneously:
+- **Hybrid Search App**: http://localhost:8080
+- **Synonym App**: http://localhost:8046
 - **Rules App**: http://localhost:8047
 
-### Option 2: Run Individual Applications
+The script automatically:
+- Sets up the virtual environment if needed
+- Loads environment variables from `variables.env`
+- Kills any existing processes on the required ports
+- Starts all three applications in the background
+- Provides status updates and process IDs
+- Handles cleanup when you press Ctrl+C
 
-#### Original Complex App
+### Option 2: Run Individual Applications Manually
+
+#### Hybrid Search App
 ```bash
-./run_app.sh
+source venv/bin/activate
+source variables.env
+python app.py
 # Available at: http://localhost:8080
 ```
 
-#### Synonyms App
+#### Synonym App
 ```bash
-./run_synonyms_app.sh
+source venv/bin/activate
+source variables.env
+python simple_app.py
 # Available at: http://localhost:8046
 ```
 
 #### Rules App
 ```bash
-./run_rules_app.sh
+source venv/bin/activate
+source variables.env
+python rules_app.py
 # Available at: http://localhost:8047
 ```
 
-### Option 3: Manual Setup
-```bash
-# Setup environment (first time only)
-source ./setup_env.sh
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Load environment variables
-source variables.env
-
-# Start individual applications
-python app.py              # Original Complex App (port 8080)
-python simple_app.py       # Synonyms App (port 8046)
-python rules_app.py        # Rules App (port 8047)
-```
 
 ## Usage
 
-### Original Complex App (Port 8080)
+### Hybrid Search App (Port 8080)
 
 1. **Enter Search Query**: Type your search terms in the search input field
 2. **Configure Weights**: Adjust the weights for different search fields in the left sidebar:
@@ -141,7 +140,7 @@ python rules_app.py        # Rules App (port 8047)
 
 4. **Search**: Click the "Search" button or press Enter to execute the search
 
-### Synonyms App (Port 8046)
+### Synonym App (Port 8046)
 
 1. **Enter Search Query**: Type your search terms in the search input field
 2. **Search**: Click the "Search" button or press Enter to execute the search
@@ -167,13 +166,13 @@ python rules_app.py        # Rules App (port 8047)
 
 ### Backend (Flask)
 
-#### Original Complex App
+#### Hybrid Search App
 - **app.py**: Main Flask application with hybrid search endpoints
 - **Search Endpoint**: `/search` - Executes hybrid search and returns products
 - **Query Generation**: `/generate_query` - Generates Elasticsearch query without execution
 - **Recommendations**: `/recommendations` - Provides product recommendations
 
-#### Synonyms App
+#### Synonym App
 - **simple_app.py**: Simplified Flask application
 - **Search Endpoint**: `/search` - Executes simple match query with highlights
 
@@ -185,17 +184,17 @@ python rules_app.py        # Rules App (port 8047)
 
 - **HTML**: Bootstrap-based responsive interface
 - **CSS**: Custom styling with animations and responsive design
-- **JavaScript**: Real-time weight updates with debouncing (Original Complex App)
+- **JavaScript**: Real-time weight updates with debouncing (Hybrid Search App)
 
 ### Elasticsearch Integration
 
-#### Original Complex App
+#### Hybrid Search App
 Uses a hybrid search approach combining:
 1. **Semantic Search**: Multiple embedding models for semantic understanding
 2. **Traditional Search**: Multi-match queries across text fields
 3. **Linear Combination**: Weighted combination of different search methods
 
-#### Synonyms App
+#### Synonym App
 - **Simple Match Query**: Basic match query on product_name field
 - **Highlights**: Shows search term highlights in results
 - **Synonyms Index**: Uses `ecommerce_shein_products_with_synonyms` index
@@ -207,7 +206,7 @@ Uses a hybrid search approach combining:
 
 ## Configuration
 
-### Original Complex App
+### Hybrid Search App
 
 #### Default Weights
 All search fields start with a weight of 2.0. You can adjust these from 0 to 10 in 0.1 increments.
@@ -219,7 +218,7 @@ By default, the multi-match query searches across:
 
 You can add or remove fields as needed.
 
-### Synonyms App
+### Synonym App
 - Uses `INDEX_WITH_SYNONYMS` environment variable
 - Simple configuration with no weights or complex options
 
@@ -230,7 +229,7 @@ You can add or remove fields as needed.
 
 ## API Endpoints
 
-### Original Complex App (Port 8080)
+### Hybrid Search App (Port 8080)
 
 #### POST /search
 Execute a hybrid search with the given parameters.
@@ -258,7 +257,7 @@ Generate the Elasticsearch query without executing it.
 #### POST /recommendations
 Get product recommendations for a given product ID.
 
-### Synonyms App (Port 8046)
+### Synonym App (Port 8046)
 
 #### POST /search
 Execute a simple match search.
@@ -300,7 +299,7 @@ Execute either text search or query rules search.
 1. **Connection Error**: Verify your Elasticsearch URL and API key in `variables.env`
 2. **No Results**: Check that the required indices exist and contain data:
    - `ecommerce_shein_products` (for Original Complex App and Rules App)
-   - `ecommerce_shein_products_with_synonyms` (for Synonyms App)
+   - `ecommerce_shein_products_with_synonyms` (for Synonym App)
 3. **Model Errors**: Ensure all inference models are properly configured in Elasticsearch (Original Complex App)
 4. **Query Rules Errors**: Verify the "labubu" ruleset is configured in Elasticsearch (Rules App)
 5. **Port Conflicts**: Make sure ports 8080, 8046, and 8047 are available
@@ -319,27 +318,27 @@ python rules_app.py        # Rules App
 
 ```
 eCommerce-demo/
-├── app.py                 # Original Complex App
-├── simple_app.py          # Synonyms App
+├── app.py                 # Hybrid Search App
+├── simple_app.py          # Synonym App
 ├── rules_app.py           # Rules App
-├── run_app.sh             # Run Original Complex App
-├── run_synonyms_app.sh    # Run Synonyms App
-├── run_rules_app.sh       # Run Rules App
-├── run_all_apps.sh        # Run All Apps
+├── run_apps.sh            # Run All Apps Simultaneously
+├── setup_env.sh           # Environment setup script
 ├── templates/
-│   ├── index.html         # Original Complex App template
-│   ├── simple_index.html  # Synonyms App template
+│   ├── index.html         # Hybrid Search App template
+│   ├── simple_index.html  # Synonym App template
 │   └── rules_index.html   # Rules App template
 ├── static/
 │   ├── css/
-│   │   ├── style.css      # Original Complex App styles
-│   │   ├── simple_style.css # Synonyms App styles
+│   │   ├── style.css      # Hybrid Search App styles
+│   │   ├── simple_style.css # Synonym App styles
 │   │   └── rules_style.css  # Rules App styles
 │   └── js/
-│       ├── app.js         # Original Complex App JavaScript
-│       ├── simple_app.js  # Synonyms App JavaScript
+│       ├── app.js         # Hybrid Search App JavaScript
+│       ├── simple_app.js  # Synonym App JavaScript
 │       └── rules_app.js   # Rules App JavaScript
-└── variables.env          # Environment configuration
+├── mappings/              # Elasticsearch field mappings
+├── variables.env          # Environment configuration
+└── requirements.txt       # Python dependencies
 ```
 
 ## Contributing
