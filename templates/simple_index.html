@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple E-commerce Search - Shein Products</title>
+    <title>Synonym E-commerce Search - Shein Products</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/simple_style.css') }}" rel="stylesheet">
@@ -16,7 +16,7 @@
                 <div class="main-content-wrapper">
                     <!-- Header -->
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-shopping-bag"></i> Shein Products - Simple Search</h2>
+                        <h2><i class="fas fa-shopping-bag"></i> Shein Products - Synonym Search</h2>
                         <div class="search-stats" id="searchStats" style="display: none;">
                             <span class="badge bg-info" id="resultCount">0 results</span>
                         </div>
@@ -124,6 +124,13 @@
                         <i class="fas fa-search fa-3x text-muted mb-3"></i>
                         <h4>No products found</h4>
                         <p class="text-muted">Try adjusting your search query.</p>
+                        <div class="suggestion-box mt-3" style="display: none;">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <span class="text-muted">Try searching for </span>
+                            <button class="btn btn-link p-0 text-info fw-bold">
+                                <!-- Dynamic suggestion will be inserted here -->
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

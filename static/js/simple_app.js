@@ -1,4 +1,4 @@
-// Simple E-commerce Search Application JavaScript
+// Synonym E-commerce Search Application JavaScript
 
 class SimpleEcommerceSearch {
     constructor() {
@@ -34,11 +34,14 @@ class SimpleEcommerceSearch {
                 this.showProductDetail(productData);
             }
         });
+        
     }
     
     loadInitialData() {
         // Load some initial products on page load
         this.performSearch();
+        // Execute synonyms logic on page load
+        this.executeSynonymsLogic();
     }
     
     async performSearch() {
@@ -74,7 +77,7 @@ class SimpleEcommerceSearch {
         }
     }
     
-    displayResults(products, total) {
+    async displayResults(products, total) {
         this.hideLoading();
         
         const resultsGrid = document.getElementById('resultsGrid');
@@ -89,10 +92,22 @@ class SimpleEcommerceSearch {
         if (products.length === 0) {
             resultsGrid.innerHTML = '';
             noResults.style.display = 'block';
+            
+            // Try to get search refinements for the current query
+            const currentQuery = document.getElementById('searchQuery').value.toLowerCase().trim();
+            if (currentQuery) {
+                await this.showSearchRefinementSuggestion(currentQuery);
+            }
             return;
         }
         
         noResults.style.display = 'none';
+        
+        // Hide suggestion when there are results
+        const suggestionBox = noResults.querySelector('.suggestion-box');
+        if (suggestionBox) {
+            suggestionBox.style.display = 'none';
+        }
         
         // Generate product cards
         resultsGrid.innerHTML = products.map(product => this.createProductCard(product)).join('');
@@ -124,13 +139,7 @@ class SimpleEcommerceSearch {
             </span>
         </div>`;
         
-        // Add highlights if available
-        let highlightHtml = '';
-        if (product.highlights && product.highlights.product_name) {
-            highlightHtml = `<div class="product-highlights">
-                <small class="text-muted">Highlights: ${product.highlights.product_name.join(' ... ')}</small>
-            </div>`;
-        }
+        // Skip highlights display - not needed for synonyms UI
         
         return `
             <div class="col-lg-4 col-md-6 mb-4">
@@ -143,7 +152,6 @@ class SimpleEcommerceSearch {
                         ${priceHtml}
                         ${ratingHtml}
                         ${stockHtml}
-                        ${highlightHtml}
                     </div>
                 </div>
             </div>
@@ -161,7 +169,7 @@ class SimpleEcommerceSearch {
         document.getElementById('loadingSpinner').style.display = 'none';
     }
     
-    showNoResults(message) {
+    showNoResults(message, showSuggestion = false) {
         this.hideLoading();
         document.getElementById('resultsGrid').innerHTML = '';
         document.getElementById('noResults').style.display = 'block';
@@ -169,6 +177,12 @@ class SimpleEcommerceSearch {
         
         const noResultsDiv = document.getElementById('noResults');
         noResultsDiv.querySelector('h4').textContent = message || 'No products found';
+        
+        // Show/hide suggestion based on parameter
+        const suggestionBox = noResultsDiv.querySelector('.suggestion-box');
+        if (suggestionBox) {
+            suggestionBox.style.display = showSuggestion ? 'inline-block' : 'none';
+        }
     }
     
     showError(errorMessage) {
@@ -262,6 +276,91 @@ class SimpleEcommerceSearch {
             console.error('Failed to copy query: ', err);
             alert('Failed to copy query to clipboard');
         });
+    }
+    
+    async showSearchRefinementSuggestion(query) {
+        try {
+            const response = await fetch(`/search-refinements/${encodeURIComponent(query)}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            const suggestionBox = document.querySelector('.suggestion-box');
+            
+            if (data.success && data.data && data.data.best_recommendation) {
+                const recommendation = data.data.best_recommendation;
+                const suggestionText = suggestionBox.querySelector('span');
+                const suggestionButton = suggestionBox.querySelector('button');
+                
+                // Update the suggestion text and button
+                suggestionText.textContent = `Try searching for `;
+                suggestionButton.textContent = recommendation.term;
+                suggestionButton.onclick = () => {
+                    document.getElementById('searchQuery').value = recommendation.term;
+                    document.getElementById('searchBtn').click();
+                };
+                
+                // Show the suggestion box
+                suggestionBox.style.display = 'inline-block';
+            } else {
+                // Hide suggestion box if no refinements found
+                suggestionBox.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error fetching search refinements:', error);
+            // Hide suggestion box on error
+            const suggestionBox = document.querySelector('.suggestion-box');
+            if (suggestionBox) {
+                suggestionBox.style.display = 'none';
+            }
+        }
+    }
+
+    async executeSynonymsLogic() {
+        try {
+            console.log('Executing synonyms logic...');
+            
+            // Step 1: GET _synonyms/yeti
+            const getResponse = await fetch('/synonyms/yeti', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const getData = await getResponse.json();
+            
+            if (getData.success && getData.data && getData.data.synonyms_set && getData.data.synonyms_set.length > 0) {
+                const ruleId = getData.data.synonyms_set[0].id; // Get first rule ID
+                console.log('Found rule ID:', ruleId);
+                
+                // Step 2: PUT _synonyms/yeti/{rule_id} with synonyms: "yeti"
+                const putResponse = await fetch(`/synonyms/yeti/${ruleId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        synonyms: 'yeti'
+                    })
+                });
+                
+                const putData = await putResponse.json();
+                
+                if (putData.success) {
+                    console.log('Synonyms updated successfully!');
+                } else {
+                    console.error('Error updating synonyms:', putData.error);
+                }
+            } else {
+                console.log('No synonyms found or error in GET request');
+            }
+        } catch (error) {
+            console.error('Error executing synonyms logic:', error);
+        }
     }
 }
 

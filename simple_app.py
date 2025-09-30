@@ -133,5 +133,116 @@ def search():
             'error': str(e)
         }), 500
 
+@app.route('/synonyms/yeti', methods=['GET'])
+def get_synonyms():
+    """Get synonyms for 'yeti' from Elasticsearch"""
+    try:
+        # Make GET request to _synonyms/yeti endpoint
+        response = es.transport.perform_request(
+            'GET',
+            '/_synonyms/yeti',
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': response
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/synonyms/yeti/<rule_id>', methods=['PUT'])
+def update_synonyms(rule_id):
+    """Update synonyms for a specific rule ID"""
+    try:
+        data = request.get_json()
+        synonyms = data.get('synonyms', '')
+        
+        if not synonyms.strip():
+            return jsonify({
+                'success': False,
+                'error': 'Synonyms cannot be empty'
+            }), 400
+        
+        # Make PUT request to _synonyms/yeti/{rule_id} endpoint
+        response = es.transport.perform_request(
+            'PUT',
+            f'/_synonyms/yeti/{rule_id}',
+            body=json.dumps({'synonyms': synonyms}),
+            headers={'Content-Type': 'application/json'}
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': response
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/search-refinements/<query>', methods=['GET'])
+def get_search_refinements(query):
+    """Get search refinements for a given query from ecommerce_shein_search_refinements index"""
+    try:
+        # Query the ecommerce_shein_search_refinements index
+        search_body = {
+            "query": {
+                "term": {
+                    "search_term": {
+                        "value": query.lower()
+                    }
+                }
+            }
+        }
+        
+        response = es.search(
+            index='ecommerce_shein_search_refinements',
+            body=search_body
+        )
+        
+        # Check if we found any results
+        if response['hits']['total']['value'] > 0:
+            # Get the first result (should be the only one for a specific search term)
+            result = response['hits']['hits'][0]
+            recommendations = result['_source'].get('recommendations', {})
+            
+            # Find the recommendation with the highest confidence
+            if recommendations:
+                best_recommendation = max(recommendations.items(), key=lambda x: x[1])
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'search_term': query,
+                        'best_recommendation': {
+                            'term': best_recommendation[0],
+                            'confidence': best_recommendation[1]
+                        },
+                        'all_recommendations': recommendations
+                    }
+                })
+        
+        # No refinements found
+        return jsonify({
+            'success': True,
+            'data': {
+                'search_term': query,
+                'best_recommendation': None,
+                'all_recommendations': {}
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8046)
