@@ -43,6 +43,11 @@ class RulesEcommerceSearch {
                 this.showProductDetail(productData);
             }
         });
+        
+        // Manage query rules button
+        document.getElementById('manageQueryRulesBtn').addEventListener('click', () => {
+            this.manageQueryRules();
+        });
     }
     
     loadInitialData() {
@@ -269,6 +274,67 @@ class RulesEcommerceSearch {
         modal.show();
     }
     
+    async manageQueryRules() {
+        try {
+            console.log('Opening Kibana query rules management...');
+            
+            // Disable button and show loading state
+            const manageBtn = document.getElementById('manageQueryRulesBtn');
+            const originalText = manageBtn.innerHTML;
+            manageBtn.disabled = true;
+            manageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            
+            // Fetch the Kibana query rules URL from the backend
+            const response = await fetch('/kibana-query-rules-url', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.url) {
+                // Open the Kibana query rules URL in a new tab
+                window.open(data.url, '_blank');
+                this.showMessage('Opening Kibana query rules management in a new tab...', 'success');
+            } else {
+                this.showMessage('Error: ' + (data.error || 'Failed to get Kibana URL'), 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error opening Kibana query rules:', error);
+            this.showMessage('Error opening Kibana query rules: ' + error.message, 'error');
+        } finally {
+            // Re-enable button
+            const manageBtn = document.getElementById('manageQueryRulesBtn');
+            manageBtn.disabled = false;
+            manageBtn.innerHTML = '<i class="fas fa-cog"></i> Manage Query Rules';
+        }
+    }
+
+    showMessage(message, type) {
+        // Create a temporary message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        messageDiv.style.top = '20px';
+        messageDiv.style.right = '20px';
+        messageDiv.style.zIndex = '9999';
+        messageDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(messageDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 5000);
+    }
+
     copyQuery() {
         if (!this.currentQuery) {
             alert('No query available to copy');

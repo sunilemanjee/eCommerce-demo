@@ -35,13 +35,21 @@ class SimpleEcommerceSearch {
             }
         });
         
+        // Reset synonyms button
+        document.getElementById('resetSynonymsBtn').addEventListener('click', () => {
+            this.resetSynonyms();
+        });
+        
+        // Manage synonyms button
+        document.getElementById('manageSynonymsBtn').addEventListener('click', () => {
+            this.manageSynonyms();
+        });
+        
     }
     
     loadInitialData() {
         // Load some initial products on page load
         this.performSearch();
-        // Execute synonyms logic on page load
-        this.executeSynonymsLogic();
     }
     
     async performSearch() {
@@ -50,6 +58,9 @@ class SimpleEcommerceSearch {
             this.showNoResults('Please enter a search query');
             return;
         }
+        
+        // Get the selected search type
+        const searchType = document.querySelector('input[name="searchType"]:checked').value;
         
         this.showLoading();
         
@@ -60,7 +71,8 @@ class SimpleEcommerceSearch {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    query: query
+                    query: query,
+                    search_type: searchType
                 })
             });
             
@@ -319,11 +331,17 @@ class SimpleEcommerceSearch {
         }
     }
 
-    async executeSynonymsLogic() {
+    async resetSynonyms() {
         try {
-            console.log('Executing synonyms logic...');
+            console.log('Resetting synonyms...');
             
-            // Step 1: GET _synonyms/yeti
+            // Disable button and show loading state
+            const resetBtn = document.getElementById('resetSynonymsBtn');
+            const originalText = resetBtn.innerHTML;
+            resetBtn.disabled = true;
+            resetBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
+            
+            // Step 1: GET _synonyms/yeti to get the rule ID
             const getResponse = await fetch('/synonyms/yeti', {
                 method: 'GET',
                 headers: {
@@ -331,10 +349,26 @@ class SimpleEcommerceSearch {
                 }
             });
             
+            // Check if response is JSON
+            const contentType = getResponse.headers.get('content-type');
+            console.log('Response content-type:', contentType);
+            
+            if (!contentType || !contentType.includes('application/json')) {
+                const textResponse = await getResponse.text();
+                console.log('Non-JSON response:', textResponse.substring(0, 200) + '...');
+                throw new Error(`Server returned non-JSON response: ${contentType}`);
+            }
+            
             const getData = await getResponse.json();
+            console.log('Synonyms API response:', getData);
+            console.log('Response status:', getResponse.status);
+            console.log('getData.success:', getData.success);
+            console.log('getData.data:', getData.data);
+            console.log('getData.data type:', typeof getData.data);
+            console.log('getData.data keys:', getData.data ? Object.keys(getData.data) : 'N/A');
             
             if (getData.success && getData.data && getData.data.synonyms_set && getData.data.synonyms_set.length > 0) {
-                const ruleId = getData.data.synonyms_set[0].id; // Get first rule ID
+                const ruleId = getData.data.synonyms_set[0].id;
                 console.log('Found rule ID:', ruleId);
                 
                 // Step 2: PUT _synonyms/yeti/{rule_id} with synonyms: "yeti"
@@ -351,17 +385,106 @@ class SimpleEcommerceSearch {
                 const putData = await putResponse.json();
                 
                 if (putData.success) {
-                    console.log('Synonyms updated successfully!');
+                    console.log('Synonyms reset successfully! Set to:', 'yeti');
+                    // Show success message
+                    this.showMessage('Synonyms reset successfully!', 'success');
                 } else {
-                    console.error('Error updating synonyms:', putData.error);
+                    console.error('Error resetting synonyms:', putData.error);
+                    this.showMessage('Error resetting synonyms: ' + putData.error, 'error');
                 }
             } else {
                 console.log('No synonyms found or error in GET request');
+                console.log('Debug info:');
+                console.log('- getData.success:', getData.success);
+                console.log('- getData.data exists:', !!getData.data);
+                console.log('- getData.data.synonyms_set exists:', !!(getData.data && getData.data.synonyms_set));
+                console.log('- synonyms_set length:', getData.data && getData.data.synonyms_set ? getData.data.synonyms_set.length : 'N/A');
+                
+                let errorMsg = 'No synonyms found or error in GET request';
+                if (!getData.success) {
+                    errorMsg = 'API request failed: ' + (getData.error || 'Unknown error');
+                } else if (!getData.data) {
+                    errorMsg = 'No data returned from API';
+                } else if (!getData.data.synonyms_set) {
+                    errorMsg = 'No synonyms_set in response data';
+                } else if (getData.data.synonyms_set.length === 0) {
+                    errorMsg = 'Synonyms set is empty';
+                }
+                
+                this.showMessage(errorMsg, 'error');
             }
         } catch (error) {
-            console.error('Error executing synonyms logic:', error);
+            console.error('Error resetting synonyms:', error);
+            this.showMessage('Error resetting synonyms: ' + error.message, 'error');
+        } finally {
+            // Re-enable button
+            const resetBtn = document.getElementById('resetSynonymsBtn');
+            resetBtn.disabled = false;
+            resetBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Reset Synonyms';
         }
     }
+
+    async manageSynonyms() {
+        try {
+            console.log('Opening Kibana synonyms management...');
+            
+            // Disable button and show loading state
+            const manageBtn = document.getElementById('manageSynonymsBtn');
+            const originalText = manageBtn.innerHTML;
+            manageBtn.disabled = true;
+            manageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            
+            // Fetch the Kibana synonyms URL from the backend
+            const response = await fetch('/kibana-synonyms-url', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.url) {
+                // Open the Kibana synonyms URL in a new tab
+                window.open(data.url, '_blank');
+                this.showMessage('Opening Kibana synonyms management in a new tab...', 'success');
+            } else {
+                this.showMessage('Error: ' + (data.error || 'Failed to get Kibana URL'), 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error opening Kibana synonyms:', error);
+            this.showMessage('Error opening Kibana synonyms: ' + error.message, 'error');
+        } finally {
+            // Re-enable button
+            const manageBtn = document.getElementById('manageSynonymsBtn');
+            manageBtn.disabled = false;
+            manageBtn.innerHTML = '<i class="fas fa-cog"></i> Manage Synonyms';
+        }
+    }
+
+    showMessage(message, type) {
+        // Create a temporary message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        messageDiv.style.top = '20px';
+        messageDiv.style.right = '20px';
+        messageDiv.style.zIndex = '9999';
+        messageDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(messageDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 5000);
+    }
+
 }
 
 // Initialize the application when the DOM is loaded

@@ -1,5 +1,7 @@
 import os
 import json
+import signal
+import sys
 from flask import Flask, render_template, request, jsonify
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
@@ -49,6 +51,7 @@ app = Flask(__name__)
 ES_URL = os.getenv('ES_URL')
 ES_API_KEY = os.getenv('ES_API_KEY')
 INDEX_NAME = os.getenv('INDEX_NAME', 'ecommerce_shein_products')
+KIBANA_QUERY_RULES = os.getenv('KIBANA_QUERY_RULES')
 
 # Initialize Elasticsearch client
 es = Elasticsearch(
@@ -152,5 +155,32 @@ def search():
             'error': str(e)
         }), 500
 
+@app.route('/kibana-query-rules-url', methods=['GET'])
+def get_kibana_query_rules_url():
+    """Get the Kibana query rules URL from environment variables"""
+    try:
+        if not KIBANA_QUERY_RULES:
+            return jsonify({
+                'success': False,
+                'error': 'KIBANA_QUERY_RULES environment variable not set'
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'url': KIBANA_QUERY_RULES
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def signal_handler(sig, frame):
+    print('\nShutting down gracefully...')
+    sys.exit(0)
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     app.run(debug=True, host='0.0.0.0', port=8047)
